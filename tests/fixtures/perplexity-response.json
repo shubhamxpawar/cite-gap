@@ -1,0 +1,19 @@
+{
+  "id": "pplx_mock_001",
+  "model": "sonar",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Acme is a solid option for small teams [2]. Rival is cheaper at the low end [1]. Both are reviewed widely [2]."
+      }
+    }
+  ],
+  "citations": ["https://rival.com/pricing", "https://acme.com/pricing"],
+  "search_results": [
+    { "title": "Rival Pricing", "url": "https://rival.com/pricing", "date": "2026-09-01" },
+    { "title": "Acme Pricing", "url": "https://acme.com/pricing", "date": "2026-09-02" }
+  ],
+  "_fixture_note": "hand-authored from the Sonar chat-completions shape (docs/decisions.md D2)"
+}

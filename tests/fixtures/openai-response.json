@@ -1,0 +1,41 @@
+{
+  "id": "resp_mock_001",
+  "object": "response",
+  "model": "gpt-4.1-mini-2025-04-14",
+  "output": [
+    {
+      "type": "web_search_call",
+      "id": "ws_001",
+      "status": "completed",
+      "action": { "type": "search", "query": "best crm for small business pricing" }
+    },
+    {
+      "type": "message",
+      "id": "msg_001",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Acme is often recommended for small teams [1]. Rival offers lower per-seat pricing [2].",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "url": "https://acme.com/pricing",
+              "title": "Acme Pricing",
+              "start_index": 45,
+              "end_index": 48
+            },
+            {
+              "type": "url_citation",
+              "url": "https://rival.com/pricing",
+              "title": "Rival Pricing",
+              "start_index": 91,
+              "end_index": 94
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "_fixture_note": "hand-authored from the Responses API shape (docs/decisions.md D2); replace with a recorded response when a key is available"
+}

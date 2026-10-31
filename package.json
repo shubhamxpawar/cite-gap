@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "tsx scripts/seed.ts",
     "inngest:dev": "inngest-cli dev"
   },
@@ -17,6 +17,7 @@
     "@mozilla/readability": "^0.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cssstyle": "^6.2.0",
     "drizzle-orm": "^0.44.0",
     "inngest": "^3.40.0",
     "linkedom": "^0.18.0",

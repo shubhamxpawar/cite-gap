@@ -1,26 +1,84 @@
 @import "tailwindcss";
 
+/* CiteGap design system — docs/03-UI-UX-Design.md §2 (neo-brutalist data tool) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f6f3ec;
+  --surface: #ffffff;
+  --ink: #111111;
+  --muted: #6b6b6b;
+  --own: #1e9e5a;
+  --own-tint: #ddf3e6;
+  --competitor: #e4572e;
+  --competitor-tint: #fce3db;
+  --third: #8a8a8a;
+  --third-tint: #ececec;
+  --accent: #ffd23f;
+  --info: #3a6ff7;
+  --critical: #b00020;
+  --high: #e4572e;
+  --medium: #ffd23f;
+  --low: #8a8a8a;
+  --radius: 6px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-own: var(--own);
+  --color-own-tint: var(--own-tint);
+  --color-competitor: var(--competitor);
+  --color-competitor-tint: var(--competitor-tint);
+  --color-third: var(--third);
+  --color-third-tint: var(--third-tint);
+  --color-accent: var(--accent);
+  --color-info: var(--info);
+  --color-critical: var(--critical);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --radius-brutal: 6px;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* hard offset shadow primitives */
+.brutal {
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--ink);
+  background: var(--surface);
+}
+.brutal-hover:hover {
+  box-shadow: 2px 2px 0 var(--ink);
+  translate: 2px 2px;
+}
+.brutal-flat {
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+}
+
+/* semantic colors NEVER reused: green=own, orange/red=competitor, grey=third-party */
+.dot-own { color: var(--own); }
+.dot-competitor { color: var(--competitor); }
+.dot-third { color: var(--third); }
+
+*:focus-visible {
+  outline: 3px solid var(--info);
+  outline-offset: 1px;
+}
+
+.mono-url {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
 }

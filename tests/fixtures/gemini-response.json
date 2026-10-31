@@ -1,0 +1,29 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "Acme and Rival are both common choices for small teams." }],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "webSearchQueries": ["best crm for small business"],
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA",
+              "title": "Acme Pricing"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://rival.com/pricing",
+              "title": "Rival Pricing"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "_fixture_note": "hand-authored from the Gemini generateContent grounding shape (docs/decisions.md D2)"
+}

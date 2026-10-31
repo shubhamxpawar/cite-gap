@@ -1,0 +1,45 @@
+{
+  "id": "msg_mock_001",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-4-20250514",
+  "content": [
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_001",
+      "name": "web_search",
+      "input": { "query": "acme pricing per seat" }
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "srvtoolu_001",
+      "content": [
+        {
+          "type": "web_search_result",
+          "url": "https://acme.com/pricing",
+          "title": "Acme Pricing",
+          "encrypted_content": "opaque"
+        },
+        {
+          "type": "web_search_result",
+          "url": "https://g2.com/categories/crm",
+          "title": "Best CRM Software - G2",
+          "encrypted_content": "opaque"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "text": "Acme's plans start at $19 per seat [1].",
+      "citations": [
+        {
+          "type": "web_search_result_location",
+          "url": "https://acme.com/pricing",
+          "title": "Acme Pricing",
+          "cited_text": "Plans start at $19 per seat."
+        }
+      ]
+    }
+  ],
+  "_fixture_note": "hand-authored from the Messages API web_search shape (docs/decisions.md D2)"
+}

@@ -1,6 +1,6 @@
 // Mirrors scripts/migrations/0001_init.sql (docs/04-Backend-Schema.md §2–§6) — do not rename.
 import {
-  pgEnum, pgTable, uuid, text, timestamp, integer, smallint, boolean, numeric, jsonb, date,
+  pgEnum, pgSchema, pgTable, uuid, text, timestamp, integer, smallint, boolean, numeric, jsonb, date,
   primaryKey, uniqueIndex, index,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -27,8 +27,10 @@ export const profiles = pgTable('profiles', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
-// Local shim for Supabase's auth.users (docs/decisions.md D4)
-export const authUsers = pgTable('users', {
+// Local shim for Supabase's auth.users (docs/decisions.md D4). The table lives in
+// the `auth` schema, not `public` — see scripts/migrations/0001_init.sql.
+export const authSchema = pgSchema('auth');
+export const authUsers = authSchema.table('users', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   email: text('email').notNull().unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
