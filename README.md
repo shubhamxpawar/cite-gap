@@ -66,6 +66,24 @@ Every sample report also carries `mock: true`. Treat the citations as a walkthro
 - **Competitors / Runs / Settings / Pricing** — head-to-head counts, per-engine run errors, plan usage meters, plan comparison.
 - **Jobs** — budget guard, per-(prompt × engine) fan-out, partial-failure tolerance, fix-report build, verification (`done` → `verified_win` / `not_yet`).
 
+## Deploy (Synteq)
+
+The repo ships a multi-stage `Dockerfile` (Next.js standalone) and an unauthenticated
+`GET /api/health` probe that returns `200` only when Postgres is reachable. Step-by-step
+runbook, env vars, migrations and the Postgres options: [`deploy/synteq.md`](./deploy/synteq.md).
+
+```bash
+docker build -t cite-gap .
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL='postgres://…' \
+  -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -e ENABLE_MOCK_ENGINE=1 cite-gap
+curl -s localhost:3000/api/health
+```
+
+Synteq Apps have an ephemeral filesystem and no managed database, so `DATABASE_URL` must point
+at an external Postgres ([D14](./docs/decisions.md)).
+
 ## Layout
 
 ```
