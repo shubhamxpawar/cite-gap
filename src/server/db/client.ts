@@ -1,14 +1,24 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import { isPooledConnection, poolMax } from './connection';
 
 const connectionString = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:54322/citegap';
+
+// Behind a transaction-mode pooler (Supabase :6543, Neon -pooler, PgBouncer)
+// prepared statements are not safe, so they are disabled automatically
+// (see `isPooledConnection`).
+const clientOptions = {
+  onnotice: () => {},
+  prepare: !isPooledConnection(connectionString),
+  max: poolMax(connectionString),
+};
 
 // Server-side connection. Locally this role bypasses RLS (service-equivalent).
 // Browser-scoped, RLS-enforced connections use `rlsClient(userId)` (tests + future Supabase swap).
 const globalForDb = globalThis as unknown as { postgresClient?: postgres.Sql; drizzleDb?: ReturnType<typeof drizzle> };
 
-export const sql = globalForDb.postgresClient ?? postgres(connectionString, { onnotice: () => {} });
+export const sql = globalForDb.postgresClient ?? postgres(connectionString, clientOptions);
 if (!globalForDb.postgresClient) globalForDb.postgresClient = sql;
 
 export const db = globalForDb.drizzleDb ?? drizzle(sql, { schema });
@@ -21,7 +31,8 @@ export { schema };
 export function rlsClient(userId: string | null) {
   const claims = userId ? JSON.stringify({ sub: userId }) : '';
   const client = postgres(connectionString, {
-    onnotice: () => {},
+    ...clientOptions,
+    max: 1,
     connection: { 'request.jwt.claims': claims },
   });
   return client;

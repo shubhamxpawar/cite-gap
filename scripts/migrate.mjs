@@ -1,10 +1,13 @@
 // Applies scripts/migrations/*.sql in order, tracked in _migrations.
+// Prefer DIRECT_URL when the app uses a pooled endpoint: migrations want one
+// session, and transaction-mode poolers drop session state.
 import fs from 'node:fs';
 import path from 'node:path';
 import postgres from 'postgres';
 
-const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:54322/citegap';
-const sql = postgres(url, { onnotice: () => {} });
+const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:54322/citegap';
+// Migrations are one-shot DDL: no prepared statements, one connection.
+const sql = postgres(url, { onnotice: () => {}, prepare: false, max: 1 });
 
 await sql`create table if not exists _migrations (name text primary key, applied_at timestamptz default now())`;
 

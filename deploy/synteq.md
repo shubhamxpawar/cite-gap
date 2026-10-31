@@ -51,7 +51,14 @@ connection-string** URL and keep `?sslmode=require` if the provider asks for it.
 
 ```sh
 export DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require'
+# optional: the unpooled URL, used by migrations when the provider offers one
+export DIRECT_URL='postgres://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require'
 ```
+
+The app detects transaction-mode poolers (Supabase `:6543`, Neon `-pooler`, PgBouncer `:6432`)
+and turns postgres.js prepared statements off automatically, because poolers drop session state
+(`src/server/db/connection.ts`). Override with `PG_PREPARE=0` if your provider needs it anyway,
+and cap the per-replica pool with `PG_POOL_MAX` (default 3 pooled / 5 direct).
 
 Nothing to provision on Synteq. This is the fastest path and survives app redeploys.
 
@@ -125,8 +132,14 @@ Optional (only if you later add real keys — none are required):
 | `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY` | runs jobs on real Inngest instead of in-process dispatch |
 | `TURNSTILE_SECRET`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | enables sample-report abuse protection |
 
-`ENABLE_MOCK_ENGINE=1` must stay set for the no-key demo; without it the run pipeline has no
-engine to call and the demo pages show empty runs.
+Database and pool tuning:
+
+| Key | Effect |
+|---|---|
+| `ENABLE_MOCK_ENGINE=1` | **required** for the no-key demo; without it the run pipeline has no engine to call and the demo pages show empty runs |
+| `DIRECT_URL` (optional) | unpooled URL used by `scripts/migrate.mjs` when `DATABASE_URL` is a pooler |
+| `PG_PREPARE=0` (optional) | force prepared statements off when a pooler is not auto-detected |
+| `PG_POOL_MAX` (optional) | per-replica connection cap (default 3 pooled / 5 direct) |
 
 ---
 
@@ -145,7 +158,7 @@ npx -y synteq app settings set cite-gap \
 |---|---|
 | Port `3000` | matches `EXPOSE 3000` / `server.js` |
 | Health `/api/health` | 503 when Postgres is unreachable, so a bad `DATABASE_URL` never takes traffic |
-| Pre-deploy `node scripts/migrate.mjs` | applies `scripts/migrations/*.sql` once per release, tracked in `_migrations`; idempotent |
+| Pre-deploy `node scripts/migrate.mjs` | applies `scripts/migrations/*.sql` once per release, tracked in `_migrations`; idempotent. Uses `DIRECT_URL` when set, otherwise `DATABASE_URL` |
 | Auto-deploy off | demo deploys are deliberate |
 
 The pre-deploy command runs inside the built image, which ships `scripts/` and the `postgres`
@@ -216,6 +229,7 @@ Live logs: `npx -y synteq app logs cite-gap -f`.
 | Release ends **Health failed** | `/api/health` returned 503 → `DATABASE_URL` wrong or DB not reachable from Synteq egress. `curl` the URL from a laptop and check `synteq app logs`. |
 | Health 200 but pages 500 | Schema not applied. Check the pre-deploy log, or run `DATABASE_URL=... node scripts/migrate.mjs` manually. |
 | `relation "users" does not exist` | Migration `0001_init.sql` did not run; the `auth.users` shim is created by it. |
+| `prepared statement "s1" does not exist` / `bind message supplies 0 parameters` | You are behind a transaction-mode pooler that was not auto-detected. Set `PG_PREPARE=0`, and point migrations at the direct URL with `DIRECT_URL`. |
 | Dashboard empty after deploy | Seed not run. Run `npm run db:seed` against the production `DATABASE_URL`. |
 | `connect ECONNREFUSED` in health `detail` | DB host/port wrong, or the VPS firewall blocks Synteq's shared egress (open a support ticket). |
 | Build fails: `DATABASE_URL` missing | It is not needed at build time; make sure the build is using the repo `Dockerfile`, not Railpack. |
