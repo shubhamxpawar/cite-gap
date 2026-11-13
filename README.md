@@ -58,6 +58,22 @@ This build ships **without provider API keys**. In that state:
 
 Every sample report also carries `mock: true`. Treat the citations as a walkthrough of the product, not as real AI visibility data. Set the keys in `.env` (`OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, …) and the real adapters are selected automatically; missing keys simply disable that engine.
 
+## Real engines and keys
+
+Only **Gemini** has a free API tier. The other three are paid — add them only if you
+accept the bill. With `ENABLE_MOCK_ENGINE=0`, only engines that have a key run.
+
+| Engine | Env var | Tier | Key |
+|---|---|---|---|
+| Gemini | `GEMINI_API_KEY` | **free tier** (Google Search grounding) | <https://aistudio.google.com/apikey> |
+| OpenAI / ChatGPT | `OPENAI_API_KEY` | paid | <https://platform.openai.com/api-keys> |
+| Anthropic / Claude | `ANTHROPIC_API_KEY` | paid | <https://console.anthropic.com/settings/keys> |
+| Perplexity | `PERPLEXITY_API_KEY` | paid | <https://www.perplexity.ai/settings/api> |
+
+For a free but real run: set `GEMINI_API_KEY`, set `ENABLE_MOCK_ENGINE=0`, restart, and
+start a new run. The free plan caps estimated spend at $2 and prompts at 8, so the budget
+guard may pause long test sessions even though Gemini's tier itself is free.
+
 ## What is implemented
 
 - **Landing + public sample report** — domain input, live SSE progress, page-type × engine matrix, missing page types, top competitor URLs, teaser fix.

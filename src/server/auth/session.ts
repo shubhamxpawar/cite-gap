@@ -2,6 +2,7 @@
 // Implements the same contract Supabase Auth provides (a stable user id) so the
 // RLS policies and queries don't change when we swap to Supabase Auth.
 import crypto from 'node:crypto';
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { db } from '@/server/db/client';
 import { authUsers, profiles, workspaces, workspaceMembers } from '@/server/db/schema';
@@ -32,14 +33,16 @@ export async function destroySession() {
   jar.delete(COOKIE);
 }
 
-export async function getSessionUserId(): Promise<string | null> {
+// `cache()` dedupes these per request: the layout and the page both call
+// getCurrentUser(), which would otherwise repeat the same queries.
+export const getSessionUserId = cache(async (): Promise<string | null> => {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   return token ? verify(token) : null;
-}
+});
 
 // Returns {userId, workspaceId}; null when signed out.
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const userId = await getSessionUserId();
   if (!userId) return null;
   const memberships = await db
@@ -50,7 +53,7 @@ export async function getCurrentUser() {
   const profile = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
   if (!memberships.length) return { userId, email: profile[0]?.email ?? '', workspaceId: null as string | null };
   return { userId, email: profile[0]?.email ?? '', workspaceId: memberships[0].workspaceId };
-}
+});
 
 // Dev sign-in: email-only (magic-link-less local stub). Creates user, profile,
 // workspace (plan free) + owner membership. Supabase Auth replaces the identity

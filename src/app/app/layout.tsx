@@ -15,18 +15,23 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   if (!user?.workspaceId) redirect('/login');
 
-  const [ws] = await db.select({ name: workspaces.name, plan: workspaces.plan }).from(workspaces).where(eq(workspaces.id, user.workspaceId)).limit(1);
-  const [latestRun] = await db
-    .select({ status: checkRuns.status })
-    .from(checkRuns)
-    .where(eq(checkRuns.workspaceId, user.workspaceId))
-    .orderBy(desc(checkRuns.createdAt))
-    .limit(1);
-  const badgeRows = (await db.execute(sql`
-    select count(*)::int as n from fix_reports fr
-    where fr.workspace_id = ${user.workspaceId}::uuid
-      and exists (select 1 from fix_items fi where fi.report_id = fr.id and fi.state = 'open')
-  `)) as unknown as { n: number }[];
+  const [wsRows, latestRows, badgeRows] = await Promise.all([
+    db.select({ name: workspaces.name, plan: workspaces.plan }).from(workspaces).where(eq(workspaces.id, user.workspaceId)).limit(1),
+    db
+      .select({ status: checkRuns.status })
+      .from(checkRuns)
+      .where(eq(checkRuns.workspaceId, user.workspaceId))
+      .orderBy(desc(checkRuns.createdAt))
+      .limit(1),
+    db.execute(sql`
+      select count(*)::int as n from fix_reports fr
+      where fr.workspace_id = ${user.workspaceId}::uuid
+        and exists (select 1 from fix_items fi where fi.report_id = fr.id and fi.state = 'open')
+    `),
+  ]);
+  const ws = wsRows[0];
+  const latestRun = latestRows[0];
+  const badgeCount = (badgeRows as unknown as { n: number }[])[0]?.n ?? 0;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -41,7 +46,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <Link href="/app" className="font-display text-lg font-bold">CiteGap</Link>
             <span className="border border-ink bg-surface px-1.5 py-0.5 text-[10px] font-bold uppercase">{ws?.plan ?? 'free'}</span>
           </div>
-          <AppNav fixesBadge={badgeRows[0]?.n ?? 0} />
+          <AppNav fixesBadge={badgeCount} />
           <div className="mt-4 border-t border-ink/20 pt-3 text-xs text-muted">
             <p className="truncate font-medium text-ink">{ws?.name}</p>
             <p className="truncate">{user.email}</p>
