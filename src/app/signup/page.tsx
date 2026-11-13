@@ -12,7 +12,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
           <p className="font-mono text-xs text-muted">FREE WORKSPACE</p>
           <h1 className="font-display text-2xl font-bold">Create your account</h1>
           <p className="mt-1 text-sm text-muted">
-            8 prompts · 2 engines · weekly checks · teaser fix only. No card.
+            8 prompts · 2 engines · weekly checks · teaser fix only. No card, and no password — your email identifies the workspace in this local build.
             {sampleId && ' Your sample report is carried over so onboarding is prefilled.'}
           </p>
           {error && <p role="alert" className="mt-3 border-2 border-critical px-2 py-1 text-sm text-critical">{error}</p>}

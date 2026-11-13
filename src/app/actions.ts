@@ -7,7 +7,7 @@ import { db } from '@/server/db/client';
 import { checkRuns, domains, fixItems, prompts, sampleReports, workspaces } from '@/server/db/schema';
 import { getCurrentUser, signInOrCreate, destroySession } from '@/server/auth/session';
 import { createRun, PLAN_PROMPT_LIMITS, PLAN_COMPETITOR_LIMITS } from '@/server/jobs/run-check';
-import { getEnabledEngines } from '@/server/engines';
+import { selectEngines } from '@/server/engines';
 import { onboardingPrompts } from '@/server/pipeline/prompts';
 import { track } from '@/server/analytics';
 
@@ -116,9 +116,9 @@ export async function finishOnboardingAction() {
   if (promptRows.length === 0) redirect('/onboarding?step=3&error=Pick+at+least+one+question');
 
   const [own] = await db.select({ hostname: domains.hostname }).from(domains).where(and(eq(domains.workspaceId, workspaceId), eq(domains.role, 'own'))).limit(1);
-  const engines = getEnabledEngines(own ? [own.hostname] : [], [])
-    .filter((e) => e.id === 'chatgpt' || e.id === 'perplexity')
-    .map((e) => e.id);
+  const plan = await planOf(workspaceId);
+  const maxEngines = plan === 'growth' ? 4 : plan === 'starter' ? 3 : 2;
+  const engines = selectEngines(own ? [own.hostname] : [], [], { max: maxEngines }).map((e) => e.id);
   await createRun(workspaceId, 'onboarding', engines, 1);
   track('onboarding_completed', { workspaceId, prompts: promptRows.length, engines });
   await db.update(workspaces).set({ nextRunAt: sql`now() + interval '7 days'` }).where(eq(workspaces.id, workspaceId));
@@ -131,7 +131,7 @@ export async function runNowAction() {
   const plan = await planOf(workspaceId);
   const maxEngines = plan === 'growth' ? 4 : plan === 'starter' ? 3 : 2;
   const [own] = await db.select({ hostname: domains.hostname }).from(domains).where(and(eq(domains.workspaceId, workspaceId), eq(domains.role, 'own'))).limit(1);
-  const engines = getEnabledEngines(own ? [own.hostname] : [], []).slice(0, maxEngines).map((e) => e.id);
+  const engines = selectEngines(own ? [own.hostname] : [], [], { max: maxEngines }).map((e) => e.id);
   if (engines.length === 0) redirect('/app?error=No+engine+configured');
   await createRun(workspaceId, 'manual', engines, 1);
   await db.update(workspaces).set({ nextRunAt: sql`now() + interval '7 days'` }).where(eq(workspaces.id, workspaceId));
@@ -167,7 +167,7 @@ export async function markFixItemAction(formData: FormData) {
 export async function recheckReportAction() {
   const { workspaceId } = await requireWorkspace();
   const [own] = await db.select({ hostname: domains.hostname }).from(domains).where(and(eq(domains.workspaceId, workspaceId), eq(domains.role, 'own'))).limit(1);
-  const engines = getEnabledEngines(own ? [own.hostname] : [], []).slice(0, 2).map((e) => e.id);
+  const engines = selectEngines(own ? [own.hostname] : [], [], { max: 2 }).map((e) => e.id);
   if (engines.length) await createRun(workspaceId, 'manual', engines, 1);
   revalidatePath('/app/fixes');
   redirect(`/app/runs?recheck=1`);

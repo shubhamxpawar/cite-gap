@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/server/db/client';
 import { checkRuns, fixReports, workspaces } from '@/server/db/schema';
 import { getCurrentUser } from '@/server/auth/session';
 import { getDashboardSummary, getLatestRuns, getLostPrompts, getVerifiedWins } from '@/server/db/queries';
 import { EngineChip, EmptyState, PageTypeChip, SourceBadge, StatCard, UrlPill } from '@/components/ui';
+import { visibleEngines } from '@/server/engines';
 
 export const dynamic = 'force-dynamic';
 
-const ENGINES = ['chatgpt', 'claude', 'perplexity', 'gemini'];
 const ROWS = ['pricing', 'docs', 'comparison', 'alternatives', 'other'];
 
 function pct(n: number, d: number) {
@@ -20,8 +20,10 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ engine?: string; firstRun?: string; running?: string; error?: string }>;
 }) {
-  const { engine: engineFilter } = await searchParams;
+  const { engine: engineParam } = await searchParams;
   const user = await getCurrentUser();
+  const ENGINES = visibleEngines({ demo: user?.email === 'demo@citegap.dev' });
+  const engineFilter = engineParam && (ENGINES as string[]).includes(engineParam) ? engineParam : undefined;
   const ws = user!.workspaceId!;
 
   const { current, previous } = await getLatestRuns(ws);
@@ -37,6 +39,17 @@ export default async function DashboardPage({
   ]);
 
   const reportByPromptEngine = new Map(reports.map((r) => [`${r.promptId}:${r.engine}`, r.id]));
+  const mockRows = latestRun
+    ? ((await db.execute(sql`
+        select exists (
+          select 1 from responses where run_id = ${latestRun.id} and model like 'mock-%'
+        ) as mock
+      `)) as unknown as { mock: boolean }[])
+    : [];
+  const latestIsMock = Boolean(mockRows[0]?.mock);
+  // Keep historical engine columns readable (e.g. old demo runs) without
+  // offering them as run options in the filter.
+  const displayEngines = [...new Set([...ENGINES, ...summary.matrix.map((m) => m.engine)])];
   const filteredLost = engineFilter ? lost.filter((l) => l.engine === engineFilter) : lost;
   const runRunning = latestRun?.status === 'running' || latestRun?.status === 'queued';
   const noRuns = !current;
@@ -53,7 +66,7 @@ export default async function DashboardPage({
             {noRuns ? 'Run your first check to see citation data.' : `Latest completed run · ${new Date(latestRun?.finishedAt ?? latestRun?.createdAt ?? Date.now()).toLocaleString()}`}
           </p>
         </div>
-        <SourceBadge model={latestRun?.engines?.join('+')} date={latestRun?.finishedAt ? new Date(latestRun.finishedAt).toLocaleDateString() : undefined} />
+        <SourceBadge model={latestRun?.engines?.join('+')} mock={latestIsMock} date={latestRun?.finishedAt ? new Date(latestRun.finishedAt).toLocaleDateString() : undefined} />
       </div>
 
       {latestRun?.status === 'partial' && (
@@ -107,7 +120,7 @@ export default async function DashboardPage({
                 <thead>
                   <tr className="border-b-2 border-ink bg-third-tint">
                     <th scope="col" className="p-2 text-left font-display">Page type</th>
-                    {ENGINES.filter((e) => !engineFilter || e === engineFilter).map((e) => (
+                    {displayEngines.filter((e) => !engineFilter || e === engineFilter).map((e) => (
                       <th key={e} scope="col" className="p-2 text-left"><EngineChip engine={e} /></th>
                     ))}
                   </tr>
@@ -119,7 +132,7 @@ export default async function DashboardPage({
                     return (
                       <tr key={row} className="border-b border-ink/20">
                         <th scope="row" className="p-2 text-left"><PageTypeChip type={row} /></th>
-                        {ENGINES.filter((e) => !engineFilter || e === engineFilter).map((engine) => {
+                        {displayEngines.filter((e) => !engineFilter || e === engineFilter).map((engine) => {
                           const cell = cells.find((c) => c.engine === engine);
                           if (!cell) return <td key={engine} className="p-2 text-xs text-muted">no citation</td>;
                           const total = cell.ownCount + cell.competitorCount + cell.thirdPartyCount;

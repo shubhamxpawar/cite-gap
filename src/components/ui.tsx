@@ -112,10 +112,17 @@ export function StatCard({ label, value, delta, hint }: { label: string; value: 
   );
 }
 
-export function SourceBadge({ model, date }: { model?: string; date?: string }) {
+export function SourceBadge({ model, date, mock }: { model?: string; date?: string; mock?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-third-tint px-1.5 py-0.5 text-xs text-muted" title="Data comes from the providers' API with web search — it approximates, but does not exactly replicate, the consumer chat apps.">
-      ⓘ API-grounded{model ? ` · ${model}` : ''}{date ? ` · ${date}` : ''}
+    <span
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs ${mock ? 'bg-accent text-ink' : 'bg-third-tint text-muted'}`}
+      title={
+        mock
+          ? 'Synthetic demo data from the mock engine. Citations are illustrative, not real AI visibility data.'
+          : "Data comes from the providers' API with web search — it approximates, but does not exactly replicate, the consumer chat apps."
+      }
+    >
+      {mock ? '⚠ Demo data' : 'ⓘ API-grounded'}{model ? ` · ${model}` : ''}{date ? ` · ${date}` : ''}
     </span>
   );
 }

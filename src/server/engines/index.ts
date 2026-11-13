@@ -6,6 +6,7 @@ import { createAnthropicAdapter } from './anthropic';
 import { createPerplexityAdapter } from './perplexity';
 import { createGeminiAdapter } from './gemini';
 import { createMockAdapter, type MockDomainContext } from './mock';
+import { configuredSearchProvider } from './search';
 
 export interface ConfiguredEngine extends EngineAdapter {
   model: string;
@@ -25,7 +26,7 @@ const DEFAULT_MODELS: Record<EngineId, string> = {
   chatgpt: 'gpt-4.1-mini',
   claude: 'claude-sonnet-4-20250514',
   perplexity: 'sonar',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-3.5-flash-lite',
 };
 
 const KEY_ENV: Record<EngineId, string> = {
@@ -51,6 +52,11 @@ export function isEngineConfigured(id: EngineId): boolean {
   return Boolean(process.env[KEY_ENV[id]]) || mockEngineEnabled();
 }
 
+/** True when at least one real provider key is configured. */
+export function hasRealEngine(): boolean {
+  return ENGINE_ORDER.some((id) => Boolean(process.env[KEY_ENV[id]]));
+}
+
 export function isEngineMocked(id: EngineId): boolean {
   return !process.env[KEY_ENV[id]] && mockEngineEnabled();
 }
@@ -63,7 +69,7 @@ function build(id: EngineId, ctx: MockDomainContext): ConfiguredEngine | null {
       id === 'chatgpt' ? createOpenAiAdapter(model, key)
       : id === 'claude' ? createAnthropicAdapter(model, key)
       : id === 'perplexity' ? createPerplexityAdapter(model, key)
-      : createGeminiAdapter(model, key);
+      : createGeminiAdapter(model, key, configuredSearchProvider());
     return Object.assign(adapter, { model, mock: false });
   }
   if (mockEngineEnabled()) {
@@ -75,6 +81,37 @@ function build(id: EngineId, ctx: MockDomainContext): ConfiguredEngine | null {
 export function getEnabledEngines(ownDomains: string[], competitorDomains: string[]): ConfiguredEngine[] {
   const ctx: MockDomainContext = { ownDomains, competitorDomains };
   return ENGINE_ORDER.map((id) => build(id, ctx)).filter((e): e is ConfiguredEngine => e !== null);
+}
+
+/**
+ * Engines a run should use: real, key-backed engines when any exist, otherwise
+ * mocks, capped by the plan. Without this, a free workspace would spend its
+ * 2-engine budget on mocked engines and never touch the real key that is
+ * configured — and the mock engine invents URLs that do not exist.
+ */
+export function selectEngines(
+  ownDomains: string[],
+  competitorDomains: string[],
+  opts: { max?: number; only?: EngineId[] } = {},
+): ConfiguredEngine[] {
+  const max = opts.max ?? ENGINE_ORDER.length;
+  const enabled = getEnabledEngines(ownDomains, competitorDomains).filter((e) => !opts.only || opts.only.includes(e.id));
+  const real = enabled.filter((e) => !e.mock);
+  return (real.length ? real : enabled)
+    .sort((a, b) => ENGINE_ORDER.indexOf(a.id) - ENGINE_ORDER.indexOf(b.id))
+    .slice(0, max);
+}
+
+/**
+ * Engines the UI should advertise. The seeded demo workspace always shows all
+ * four so the walkthrough stays intact; everywhere else unconfigured paid
+ * engines are hidden, and mocks only appear when no real key exists.
+ */
+export function visibleEngines(opts: { demo?: boolean } = {}): EngineId[] {
+  if (opts.demo) return [...ENGINE_ORDER];
+  const enabled = getEnabledEngines([], []);
+  const real = enabled.filter((e) => !e.mock);
+  return (real.length ? real : enabled).map((e) => e.id);
 }
 
 export function getEngineById(id: EngineId, ctx: MockDomainContext): ConfiguredEngine | null {

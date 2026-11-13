@@ -7,10 +7,10 @@ import { addPromptAction, deletePromptAction, togglePromptAction } from '@/app/a
 import { PLAN_PROMPT_LIMITS } from '@/server/jobs/run-check';
 import { workspaces } from '@/server/db/schema';
 import { EngineChip } from '@/components/ui';
+import { visibleEngines } from '@/server/engines';
 
 export const dynamic = 'force-dynamic';
 
-const ENGINES = ['chatgpt', 'claude', 'perplexity', 'gemini'];
 const INTENTS = ['pricing', 'comparison', 'alternatives', 'docs', 'howto', 'brand'];
 
 type Latest = { promptId: string; engine: string; status: string; ownCited: boolean; createdAt: string };
@@ -18,6 +18,7 @@ type Latest = { promptId: string; engine: string; status: string; ownCited: bool
 export default async function PromptsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
   const user = await getCurrentUser();
+  const ENGINES = visibleEngines({ demo: user?.email === 'demo@citegap.dev' });
   const ws = user!.workspaceId!;
 
   const [[wsRow], rows, latestRaw] = await Promise.all([

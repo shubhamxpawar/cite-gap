@@ -7,7 +7,7 @@ import { checkRuns, workspaces } from '@/server/db/schema';
 import { getCurrentUser } from '@/server/auth/session';
 import { AppNav } from '@/components/app-nav';
 import { runNowAction, signOutAction } from '@/app/actions';
-import { mockEngineEnabled } from '@/server/engines';
+import { hasRealEngine, mockEngineEnabled } from '@/server/engines';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-col">
-      {mockEngineEnabled() && (
+      {mockEngineEnabled() && !hasRealEngine() && (
         <p className="border-b-2 border-ink bg-accent px-4 py-1 text-center text-xs font-medium">
           Demo mode: no provider key configured — engine answers are synthetic (mock engine). Do not treat them as real citations.
         </p>

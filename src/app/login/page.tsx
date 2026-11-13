@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <main className="mx-auto w-full max-w-[560px] flex-1 px-4 py-12">
         <div className="brutal p-6">
           <h1 className="font-display text-2xl font-bold">Log in</h1>
-          <p className="mt-1 text-sm text-muted">Magic-link style sign-in. Locally, the email identifies your workspace.</p>
+          <p className="mt-1 text-sm text-muted">Enter the email you signed up with. This local build has no password: the email alone identifies your workspace.</p>
           {error && <p role="alert" className="mt-3 border-2 border-critical px-2 py-1 text-sm text-critical">{error}</p>}
           <form action={signInAction} className="mt-4 space-y-3">
             {sampleId && <input type="hidden" name="sampleId" value={sampleId} />}

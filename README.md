@@ -8,7 +8,7 @@ Built from the specs in [`docs/`](./docs): TRD, app flow, UI/UX, backend schema,
 
 - Next.js 15 (App Router, server actions, SSE progress)
 - Postgres (local embedded instance, Drizzle ORM)
-- Inngest functions — run in-process in this repo when no Inngest keys are set (see [D11](./docs/decisions.md))
+- Inngest functions — run in-process by default; real Inngest via the local dev server or cloud keys (see [D11](./docs/decisions.md))
 - Tailwind CSS 4, neo-brutalist design system from `docs/03-UI-UX-Design.md`
 - Vitest for pipeline/engine contract tests
 
@@ -46,8 +46,31 @@ Useful scripts:
 | `npm run db:seed` | replace the `[DEMO]` workspace and warm sample reports (idempotent) |
 | `npm run dev` | Next.js dev server |
 | `npm run build` | production build |
+| `npm run inngest:dev` | local Inngest dev server at <http://localhost:8288> |
 | `npm run test` | Vitest suite |
 | `npm run lint` | ESLint |
+
+### Real Inngest locally
+
+By default jobs execute in-process, so no second process is needed. To exercise the
+real Inngest functions:
+
+```bash
+# terminal 1
+npm run dev                 # or: npm run build && npm start
+
+# terminal 2
+npm run inngest:dev         # http://localhost:8288
+```
+
+Keep `INNGEST_DEV=1` in `.env`. The dev server discovers the app at
+`http://localhost:3000/api/inngest`, and the app sends events to `localhost:8288`.
+If the dev server is not running, dispatch logs the failure and falls back to
+in-process execution instead of dropping the run.
+
+Cloud keys (`INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`) are only useful once the app
+has a public URL that Inngest Cloud can reach — a tunnel or a deployed environment.
+Cloud keys alone cannot process events from `localhost`.
 
 ## Mock mode (important)
 
@@ -60,19 +83,40 @@ Every sample report also carries `mock: true`. Treat the citations as a walkthro
 
 ## Real engines and keys
 
-Only **Gemini** has a free API tier. The other three are paid — add them only if you
-accept the bill. With `ENABLE_MOCK_ENGINE=0`, only engines that have a key run.
+Only **Gemini** has a free text tier. The other three are paid — add them only if you
+accept the bill. With `ENABLE_MOCK_ENGINE=0`, only engines that have a key run, and a
+run uses real engines exclusively (mocks are never mixed in).
 
 | Engine | Env var | Tier | Key |
 |---|---|---|---|
-| Gemini | `GEMINI_API_KEY` | **free tier** (Google Search grounding) | <https://aistudio.google.com/apikey> |
+| Gemini | `GEMINI_API_KEY` | **free text tier** | <https://aistudio.google.com/apikey> |
+| Tavily search | `TAVILY_API_KEY` | **free** 1,000 searches/month, no card | <https://app.tavily.com> |
+| Brave search | `BRAVE_SEARCH_API_KEY` | free 2,000 queries/month | <https://brave.com/search/api/> |
+| Serper search | `SERPER_API_KEY` | free 2,500 credits | <https://serper.dev> |
 | OpenAI / ChatGPT | `OPENAI_API_KEY` | paid | <https://platform.openai.com/api-keys> |
 | Anthropic / Claude | `ANTHROPIC_API_KEY` | paid | <https://console.anthropic.com/settings/keys> |
 | Perplexity | `PERPLEXITY_API_KEY` | paid | <https://www.perplexity.ai/settings/api> |
 
-For a free but real run: set `GEMINI_API_KEY`, set `ENABLE_MOCK_ENGINE=0`, restart, and
-start a new run. The free plan caps estimated spend at $2 and prompts at 8, so the budget
-guard may pause long test sessions even though Gemini's tier itself is free.
+### Why a search key is needed
+
+Google Search grounding is **not available on the Gemini API free tier** (as of
+November 2026). A free key can generate text, but it cannot browse or return citations.
+CiteGap therefore pairs Gemini's free text model with a free search API: it searches,
+feeds the numbered results to Gemini, and asks Gemini to cite them. Tavily is checked
+first, then Brave, then Serper; if one fails or returns nothing the next is tried. Without one of those keys the adapter falls back to
+native Google Search grounding, which needs a paid-tier Gemini project.
+
+For a free but real run:
+
+```env
+GEMINI_API_KEY=...
+TAVILY_API_KEY=...
+ENABLE_MOCK_ENGINE=0
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Restart and start a new run. The free plan caps estimated spend at $2 and prompts at 8;
+Tavily's free 1,000 credits/month is roughly 125 eight-prompt runs.
 
 ## What is implemented
 
@@ -130,5 +174,5 @@ Covers URL normalization, page classification, SSRF guard, robots parsing, featu
 
 - No Stripe billing, email delivery or Turnstile in the local demo ([D13](./docs/decisions.md)).
 - Real engines require keys; the demo runs on the mock engine ([D2](./docs/decisions.md)).
-- Inngest runs in-process unless `INNGEST_EVENT_KEY` / `INNGEST_DEV_SERVER=1` is set ([D11](./docs/decisions.md)).
+- Inngest runs in-process unless Inngest is configured: set `INNGEST_DEV=1` and run `npm run inngest:dev` for the local dev server, or set cloud keys and expose the app publicly. If the dev server is unreachable, dispatch falls back to in-process execution ([D11](./docs/decisions.md)).
 - Findings are evidence-based differences between pages, **not guarantees of citation**.

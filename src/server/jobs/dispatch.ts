@@ -1,6 +1,7 @@
-// Event dispatch. With Inngest keys (or INNGEST_DEV_SERVER=1) events go to Inngest.
-// Without them — the local-first default — the same job handlers run in-process so the
-// whole product works with `npm run dev` + Postgres only (docs/decisions.md D11).
+// Event dispatch. With Inngest (cloud keys, or the local dev server via
+// INNGEST_DEV=1) events go to Inngest. Without it — the local-first default —
+// the same job handlers run in-process so the whole product works with
+// `npm run dev` + Postgres only (docs/decisions.md D11).
 import crypto from 'node:crypto';
 import { inngest } from './inngest';
 import type { InngestFunction } from 'inngest';
@@ -15,7 +16,8 @@ type JobName =
 export type DispatchableEvent = { name: JobName; data: Record<string, unknown> };
 
 function inngestConfigured(): boolean {
-  return Boolean(process.env.INNGEST_EVENT_KEY) || process.env.INNGEST_DEV_SERVER === '1';
+  // INNGEST_DEV=1 makes the SDK target the local dev server (localhost:8288).
+  return Boolean(process.env.INNGEST_EVENT_KEY) || process.env.INNGEST_DEV === '1' || process.env.INNGEST_DEV_SERVER === '1';
 }
 
 let jobsPromise: Promise<Record<JobName, InngestFunction.Any>> | null = null;
@@ -84,17 +86,27 @@ async function executeLocal(name: JobName, data: Record<string, unknown>): Promi
   await (isProviderCall ? withSlot(run) : run());
 }
 
-/** Fire-and-forget dispatch. Returns immediately in both modes. */
-export async function dispatchEvent(name: JobName, data: Record<string, unknown>): Promise<void> {
-  if (inngestConfigured()) {
-    await inngest.send({ name, data });
-    return;
-  }
+function runLocally(name: JobName, data: Record<string, unknown>): void {
   const p = executeLocal(name, data).catch((err) => {
     console.error(`[local-job] ${name} failed`, err);
   });
   inFlight.add(p);
   p.finally(() => inFlight.delete(p));
+}
+
+/** Fire-and-forget dispatch. Returns immediately in both modes. */
+export async function dispatchEvent(name: JobName, data: Record<string, unknown>): Promise<void> {
+  if (inngestConfigured()) {
+    try {
+      await inngest.send({ name, data });
+      return;
+    } catch (err) {
+      // Dev server not running / cloud unreachable: never drop the run, just
+      // execute the same handler in-process so the product keeps working.
+      console.error(`[inngest] send failed for ${name}; falling back to local execution`, err);
+    }
+  }
+  runLocally(name, data);
 }
 
 /** Awaits in-flight local jobs (used by scripts/seed + tests). */
