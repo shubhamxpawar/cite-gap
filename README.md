@@ -19,6 +19,9 @@ Prerequisites: Node 20+, npm. No Docker, no API keys, no cloud account.
 ```bash
 npm install
 
+# 0. local config (mock mode is on; no keys needed)
+cp .env.example .env
+
 # 1. start the embedded Postgres (localhost:54322)
 node scripts/db.mjs up
 
