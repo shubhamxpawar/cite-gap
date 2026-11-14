@@ -5,10 +5,14 @@ import { redirect } from 'next/navigation';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/server/db/client';
 import { checkRuns, domains, fixItems, prompts, sampleReports, workspaces } from '@/server/db/schema';
-import { getCurrentUser, signInOrCreate, destroySession } from '@/server/auth/session';
+import { getCurrentUser, signInOrCreate, signInWithPassword, signUpWithPassword, destroySession } from '@/server/auth/session';
+import { passwordPolicyError } from '@/server/auth/password';
 import { createRun, PLAN_PROMPT_LIMITS, PLAN_COMPETITOR_LIMITS } from '@/server/jobs/run-check';
 import { selectEngines } from '@/server/engines';
-import { onboardingPrompts } from '@/server/pipeline/prompts';
+import { dispatchEvent } from '@/server/jobs/dispatch';
+import { onboardingPrompts, inferCategory, brandFromTitle } from '@/server/pipeline/prompts';
+import { fetchPageSafe } from '@/server/pipeline/fetcher';
+import { extractFeatures } from '@/server/pipeline/extract-features';
 import { track } from '@/server/analytics';
 
 function str(form: FormData, key: string): string {
@@ -34,9 +38,29 @@ async function planOf(workspaceId: string): Promise<'free' | 'starter' | 'growth
 export async function signInAction(formData: FormData) {
   const email = str(formData, 'email').toLowerCase();
   const sampleId = str(formData, 'sampleId');
+  const password = String(formData.get('password') ?? '');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) redirect(`/login?error=Enter+a+valid+email${sampleId ? `&sampleId=${sampleId}` : ''}`);
-  const { workspaceId } = await signInOrCreate(email);
+  if (passwordPolicyError(password)) redirect(`/login?error=${encodeURIComponent('Password must be at least 8 characters')}${sampleId ? `&sampleId=${sampleId}` : ''}`);
+  const res = await signInWithPassword(email, password);
+  if ('error' in res) redirect(`/login?error=${encodeURIComponent(res.error)}${sampleId ? `&sampleId=${sampleId}` : ''}`);
+  const { workspaceId } = res;
   if (sampleId) track('sample_to_signup', { sampleId, workspaceId });
+  const hasDomain = await db.select({ id: domains.id }).from(domains).where(eq(domains.workspaceId, workspaceId)).limit(1);
+  redirect(hasDomain.length ? '/app' : `/onboarding${sampleId ? `?sampleId=${sampleId}` : ''}`);
+}
+
+export async function signUpAction(formData: FormData) {
+  const email = str(formData, 'email').toLowerCase();
+  const sampleId = str(formData, 'sampleId');
+  const password = String(formData.get('password') ?? '');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) redirect(`/signup?error=Enter+a+valid+email${sampleId ? `&sampleId=${sampleId}` : ''}`);
+  const policyError = passwordPolicyError(password);
+  if (policyError) redirect(`/signup?error=${encodeURIComponent(policyError)}${sampleId ? `&sampleId=${sampleId}` : ''}`);
+  const res = await signUpWithPassword(email, password);
+  if ('error' in res) redirect(`/signup?error=${encodeURIComponent(res.error)}${sampleId ? `&sampleId=${sampleId}` : ''}`);
+  const { workspaceId } = res;
+  if (sampleId) track('sample_to_signup', { sampleId, workspaceId });
+  track('signup', { workspaceId });
   const hasDomain = await db.select({ id: domains.id }).from(domains).where(eq(domains.workspaceId, workspaceId)).limit(1);
   redirect(hasDomain.length ? '/app' : `/onboarding${sampleId ? `?sampleId=${sampleId}` : ''}`);
 }
@@ -63,6 +87,16 @@ export async function saveDomainAction(formData: FormData) {
     await db.update(domains).set({ hostname, label: hostname }).where(eq(domains.id, existing[0].id));
   } else {
     await db.insert(domains).values({ workspaceId, hostname, role: 'own', label: hostname });
+  }
+  // Best effort: read the homepage so the suggested questions match the site.
+  try {
+    const r = await fetchPageSafe(`https://${hostname}/`, { timeoutMs: 8_000 });
+    const ex = extractFeatures(r.body, r.finalUrl, { status: r.status, headers: r.headers });
+    const category = inferCategory(ex.title, ex.text.slice(0, 160));
+    const brand = brandFromTitle(ex.title, hostname);
+    await db.update(workspaces).set({ brand, category }).where(eq(workspaces.id, workspaceId));
+  } catch {
+    // site unreachable — suggested questions fall back to generic phrasing
   }
   revalidatePath('/onboarding');
   redirect(`/onboarding?step=2${sampleId ? `&sampleId=${sampleId}` : ''}`);
@@ -120,6 +154,7 @@ export async function finishOnboardingAction() {
   const maxEngines = plan === 'growth' ? 4 : plan === 'starter' ? 3 : 2;
   const engines = selectEngines(own ? [own.hostname] : [], [], { max: maxEngines }).map((e) => e.id);
   await createRun(workspaceId, 'onboarding', engines, 1);
+  await dispatchEvent('pages/discover.requested', { workspaceId });
   track('onboarding_completed', { workspaceId, prompts: promptRows.length, engines });
   await db.update(workspaces).set({ nextRunAt: sql`now() + interval '7 days'` }).where(eq(workspaces.id, workspaceId));
   revalidatePath('/app');

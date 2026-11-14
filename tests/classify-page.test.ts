@@ -53,6 +53,17 @@ describe('classifyPage (TRD §5, 40 fixtures)', () => {
     expect(classifyPage('https://acme.com/docs/pricing')).toBe('docs');
   });
 
+  it('maps /pricing, /plans, /price, /pro to pricing', () => {
+    expect(classifyPage('https://cliputils.com/pro')).toBe('pricing');
+    expect(classifyPage('https://cliputils.com/pricing')).toBe('pricing');
+    expect(classifyPage('https://acme.com/plans/team')).toBe('pricing');
+  });
+
+  it('maps /products-like segments as other, not pricing', () => {
+    expect(classifyPage('https://acme.com/products')).toBe('other');
+    expect(classifyPage('https://acme.com/prose')).toBe('other');
+  });
+
   it('uses title only as a fallback for otherwise unclassified paths', () => {
     expect(classifyPage('https://acme.com/x1', 'Simple pricing for teams')).toBe('pricing');
     expect(classifyPage('https://acme.com/x2', 'Acme vs Rival')).toBe('comparison');

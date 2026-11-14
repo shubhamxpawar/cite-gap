@@ -20,7 +20,7 @@ export default async function OnboardingPage({
   const user = await getCurrentUser();
   if (!user?.workspaceId) redirect(`/login${sampleId ? `?sampleId=${sampleId}` : ''}`);
 
-  const [ws] = await db.select({ plan: workspaces.plan }).from(workspaces).where(eq(workspaces.id, user.workspaceId)).limit(1);
+  const [ws] = await db.select({ plan: workspaces.plan, brand: workspaces.brand, category: workspaces.category }).from(workspaces).where(eq(workspaces.id, user.workspaceId)).limit(1);
   const plan = ws?.plan ?? 'free';
   const promptLimit = PLAN_PROMPT_LIMITS[plan];
   const competitorLimit = PLAN_COMPETITOR_LIMITS[plan];
@@ -31,8 +31,8 @@ export default async function OnboardingPage({
 
   const prefill = sampleId ? await loadSamplePrefill(sampleId) : null;
   const hostname = own?.hostname ?? prefill?.hostname ?? '';
-  const category = prefill?.category ?? 'software';
-  const brand = hostname.split('.')[0] || 'your product';
+  const category = prefill?.category ?? ws?.category ?? 'software';
+  const brand = ws?.brand ?? (hostname ? hostname.split('.')[0] : 'your product');
   const suggested = onboardingPrompts(brand, category);
   const selected = promptRows.length ? promptRows.map((p) => p.text) : suggested.slice(0, Math.min(8, promptLimit)).map((p) => p.text);
   const competitorDefault = competitorRows.length ? competitorRows.map((c) => c.hostname).join('\n') : (prefill?.competitors ?? []).join('\n');

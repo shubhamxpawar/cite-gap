@@ -33,6 +33,7 @@ export const authSchema = pgSchema('auth');
 export const authUsers = authSchema.table('users', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   email: text('email').notNull().unique(),
+  passwordHash: text('password_hash'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
@@ -45,6 +46,8 @@ export const workspaces = pgTable('workspaces', {
   auditCreditCents: integer('audit_credit_cents').notNull().default(0),
   nextRunAt: timestamp('next_run_at', { withTimezone: true }),
   runCadenceHours: integer('run_cadence_hours').notNull().default(168),
+  brand: text('brand'),
+  category: text('category'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 

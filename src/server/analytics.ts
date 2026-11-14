@@ -4,6 +4,7 @@ export type AnalyticsEvent =
   | 'sample_started'
   | 'sample_completed'
   | 'sample_to_signup'
+  | 'signup'
   | 'onboarding_completed'
   | 'run_started'
   | 'run_completed'

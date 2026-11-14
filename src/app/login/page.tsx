@@ -10,15 +10,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <main className="mx-auto w-full max-w-[560px] flex-1 px-4 py-12">
         <div className="brutal p-6">
           <h1 className="font-display text-2xl font-bold">Log in</h1>
-          <p className="mt-1 text-sm text-muted">Enter the email you signed up with. This local build has no password: the email alone identifies your workspace.</p>
+          <p className="mt-1 text-sm text-muted">Sign in with your email and password. No account yet? Create a free workspace in seconds.</p>
           {error && <p role="alert" className="mt-3 border-2 border-critical px-2 py-1 text-sm text-critical">{error}</p>}
           <form action={signInAction} className="mt-4 space-y-3">
             {sampleId && <input type="hidden" name="sampleId" value={sampleId} />}
             <label className="block text-sm font-medium" htmlFor="email">Email</label>
             <input id="email" name="email" type="email" required autoComplete="email" placeholder="you@company.com"
               className="brutal-flat min-h-11 w-full bg-surface px-3 py-2" />
+            <label className="block text-sm font-medium" htmlFor="password">Password</label>
+            <input id="password" name="password" type="password" required minLength={8} autoComplete="current-password" placeholder="8+ characters"
+              className="brutal-flat min-h-11 w-full bg-surface px-3 py-2" />
+            <p className="text-xs text-muted">First time since the password upgrade? Enter any 8+ character password — it will be set as your password.</p>
             <button type="submit" className="brutal brutal-hover min-h-11 w-full bg-accent px-4 py-2 font-display font-bold">
-              Continue with email ▸
+              Log in ▸
             </button>
           </form>
           <div className="mt-4 border-t border-ink/20 pt-4">

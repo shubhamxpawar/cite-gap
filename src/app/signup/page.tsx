@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { signInAction } from '@/app/actions';
+import { signUpAction } from '@/app/actions';
 import { SiteFooter, SiteHeader } from '@/components/site-header';
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ error?: string; sampleId?: string }> }) {
@@ -12,14 +12,17 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
           <p className="font-mono text-xs text-muted">FREE WORKSPACE</p>
           <h1 className="font-display text-2xl font-bold">Create your account</h1>
           <p className="mt-1 text-sm text-muted">
-            8 prompts · 2 engines · weekly checks · teaser fix only. No card, and no password — your email identifies the workspace in this local build.
+            8 prompts · 2 engines · weekly checks · teaser fix only. No card. Your data stays on this instance.
             {sampleId && ' Your sample report is carried over so onboarding is prefilled.'}
           </p>
           {error && <p role="alert" className="mt-3 border-2 border-critical px-2 py-1 text-sm text-critical">{error}</p>}
-          <form action={signInAction} className="mt-4 space-y-3">
+          <form action={signUpAction} className="mt-4 space-y-3">
             {sampleId && <input type="hidden" name="sampleId" value={sampleId} />}
             <label className="block text-sm font-medium" htmlFor="email">Work email</label>
             <input id="email" name="email" type="email" required autoComplete="email" placeholder="you@company.com"
+              className="brutal-flat min-h-11 w-full bg-surface px-3 py-2" />
+            <label className="block text-sm font-medium" htmlFor="password">Password</label>
+            <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" placeholder="At least 8 characters"
               className="brutal-flat min-h-11 w-full bg-surface px-3 py-2" />
             <button type="submit" className="brutal brutal-hover min-h-11 w-full bg-accent px-4 py-2 font-display font-bold">
               Create workspace ▸

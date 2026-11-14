@@ -11,7 +11,8 @@ type JobName =
   | 'check/run.requested'
   | 'run-prompt-engine/requested'
   | 'fix-report/build.requested'
-  | 'verify/fixes.requested';
+  | 'verify/fixes.requested'
+  | 'pages/discover.requested';
 
 export type DispatchableEvent = { name: JobName; data: Record<string, unknown> };
 
@@ -23,11 +24,12 @@ function inngestConfigured(): boolean {
 let jobsPromise: Promise<Record<JobName, InngestFunction.Any>> | null = null;
 function jobs() {
   jobsPromise ??= (async () => {
-    const [sample, runCheck, fix, verify] = await Promise.all([
+    const [sample, runCheck, fix, verify, discover] = await Promise.all([
       import('./sample-report'),
       import('./run-check'),
       import('./build-fix-report'),
       import('./verify-fixes'),
+      import('./discover-own-pages'),
     ]);
     return {
       'sample/run.requested': sample.sampleReportJob as unknown as InngestFunction.Any,
@@ -35,6 +37,7 @@ function jobs() {
       'run-prompt-engine/requested': runCheck.runPromptEngineJob as unknown as InngestFunction.Any,
       'fix-report/build.requested': fix.buildFixReportJob as unknown as InngestFunction.Any,
       'verify/fixes.requested': verify.verifyFixesJob as unknown as InngestFunction.Any,
+      'pages/discover.requested': discover.discoverOwnPagesJob as unknown as InngestFunction.Any,
     };
   })();
   return jobsPromise;

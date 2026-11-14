@@ -5,25 +5,42 @@ const KNOWN_CATEGORIES = [
   'crm', 'analytics', 'project management', 'invoicing', 'email marketing', 'helpdesk', 'scheduling',
   'note-taking', 'database', 'website builder', 'accounting', 'form builder', 'design',
   'developer tools', 'payments', 'customer support', 'security', 'observability',
+  'ai video', 'video clipping', 'video editing', 'clip generator', 'ai clip', 'clip maker',
+  'podcast', 'transcription', 'ai audio', 'voice cloning', 'text to speech',
+  'ai writing', 'ai agent', 'chatbot', 'seo', 'automation', 'ai design', 'ai image',
+  'ai code', 'code', 'screenshot', 'screen recorder', 'social media', 'scheduler',
+  'video', 'audio', 'clip', 'ai',
 ];
 
 export function inferCategory(title: string, h1: string): string {
-  const text = `${title} ${h1}`.toLowerCase();
+  const text = `${title} ${h1}`.toLowerCase().replace(/&amp;/g, '&');
   for (const k of KNOWN_CATEGORIES) if (text.includes(k)) return k;
-  const stop = new Set(['the', 'a', 'an', 'for', 'and', 'of', 'your', 'with', 'software', 'app', 'platform', 'tool', 'tools', 'best', 'free', 'online']);
-  const words = title.split(/\s+/).map((w) => w.replace(/[^a-z-]/gi, '').toLowerCase()).filter((w) => w.length > 2 && !stop.has(w));
+  const stop = new Set(['the', 'a', 'an', 'for', 'and', 'of', 'your', 'with', 'software', 'app', 'platform', 'tool', 'tools', 'best', 'free', 'online', 'pricing']);
+  const words = title.replace(/&amp;/g, '&').split(/\s+/).map((w) => w.replace(/[^a-z-]/gi, '').toLowerCase()).filter((w) => w.length > 2 && !stop.has(w));
   return words.slice(0, 2).join(' ') || 'software';
 }
 
+/**
+ * Pick the brand name from a page title: prefer a title segment that contains the
+ * hostname's brand (case/space/punctuation-insensitive), else the first segment,
+ * else the hostname brand.
+ */
 export function brandFromTitle(title: string, hostname: string): string {
-  return (title.split(/[|\-–—:]/)[0] || hostname.split('.')[0]).trim();
+  const own = hostname.split('.')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? '';
+  const segments = title.split(/[|\-–—:·•/]/).map((s) => s.trim()).filter((s) => s.length >= 2);
+  if (own) {
+    for (const segment of segments) {
+      if (segment.toLowerCase().replace(/[^a-z0-9]/g, '').includes(own)) return segment;
+    }
+  }
+  return segments[0] || hostname.split('.')[0];
 }
 
 // 8 sample-report prompts: 3 pricing-intent, 3 docs/how-to, 2 comparison/alternatives (TRD §10).
 export function generatePrompts(brand: string, category: string): GeneratedPrompt[] {
   const c = category.toLowerCase();
   return [
-    { text: `What is the best ${c} for small businesses?`, intent: 'pricing' },
+    { text: `What is the best ${c} tool for small businesses?`, intent: 'pricing' },
     { text: `${brand} pricing — how much does ${brand} cost per month?`, intent: 'pricing' },
     { text: `Which ${c} tools are cheapest for a team of 10?`, intent: 'pricing' },
     { text: `How do I set up ${brand}?`, intent: 'howto' },

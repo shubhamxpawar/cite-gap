@@ -4,8 +4,9 @@ import { sampleReportJob } from '@/server/jobs/sample-report';
 import { runCheckJob, runPromptEngineJob } from '@/server/jobs/run-check';
 import { buildFixReportJob } from '@/server/jobs/build-fix-report';
 import { verifyFixesJob } from '@/server/jobs/verify-fixes';
+import { discoverOwnPagesJob } from '@/server/jobs/discover-own-pages';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [sampleReportJob, runCheckJob, runPromptEngineJob, buildFixReportJob, verifyFixesJob],
+  functions: [sampleReportJob, runCheckJob, runPromptEngineJob, buildFixReportJob, verifyFixesJob, discoverOwnPagesJob],
 });

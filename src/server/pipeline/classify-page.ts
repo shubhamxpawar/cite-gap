@@ -7,7 +7,7 @@ export type OwnerClass = 'own' | 'competitor' | 'third_party';
 
 const DOCS_HOST = /^(docs|developer|developers|help|support)\./i;
 const DOCS_PATH = /^\/(docs|documentation|guides?|api(-reference)?|reference|help|learn|tutorials?)(\/|$)/i;
-const PRICING_PATH = /(^|\/)(pricing|plans?|price|packages)(\/|$)/i;
+const PRICING_PATH = /(^|\/)(pricing|plans?|price|packages|pro)(\/|$)/i;
 const COMPARISON_PATH = /(^|\/)(vs|versus|compare|comparison)(\/|$|-)/i;
 const COMPARISON_SLUG = /-vs-/i;
 const ALTERNATIVES_PATH = /(^|\/)(alternatives?|competitors?)(\/|$|-)/i;
