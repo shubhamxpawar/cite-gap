@@ -1,6 +1,7 @@
 import { getCurrentUser } from '@/server/auth/session';
 import { getRunErrors, getRuns } from '@/server/db/queries';
-import { cancelRunAction } from '@/app/actions';
+import { cancelRunAction, deleteRunAction } from '@/app/actions';
+import { TwoStepDeleteButton } from '@/components/two-step-delete';
 import { EmptyState } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -23,8 +24,8 @@ function duration(start: unknown, end: unknown): string {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-export default async function RunsPage({ searchParams }: { searchParams: Promise<{ recheck?: string }> }) {
-  const { recheck } = await searchParams;
+export default async function RunsPage({ searchParams }: { searchParams: Promise<{ recheck?: string; notice?: string }> }) {
+  const { recheck, notice } = await searchParams;
   const user = await getCurrentUser();
   const ws = user!.workspaceId!;
   const [runs, errors] = await Promise.all([getRuns(ws), getRunErrors(ws)]);
@@ -44,6 +45,9 @@ export default async function RunsPage({ searchParams }: { searchParams: Promise
       </div>
 
       {recheck && <p role="status" className="border-2 border-ink bg-accent px-3 py-2 text-sm">Re-check queued. Refresh in a moment to see the new run and whether your page is cited.</p>}
+      {notice && <p role="status" className="border-2 border-ink bg-own-tint px-3 py-2 text-sm">{notice.replace(/\+/g, ' ')}</p>}
+
+      <p className="text-xs text-muted">Deleting a run removes its answers, citations and fix reports. Your pages and prompts stay, but the run and its numbers are gone for good — there is no undo.</p>
 
       {runs.length === 0 ? (
         <EmptyState
@@ -91,12 +95,23 @@ export default async function RunsPage({ searchParams }: { searchParams: Promise
                       )}
                     </td>
                     <td className="p-2">
-                      {(status === 'running' || status === 'queued') && (
-                        <form action={cancelRunAction}>
-                          <input type="hidden" name="runId" value={String(r.id)} />
-                          <button type="submit" className="text-xs text-critical underline">Cancel</button>
-                        </form>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {(status === 'running' || status === 'queued') && (
+                          <form action={cancelRunAction}>
+                            <input type="hidden" name="runId" value={String(r.id)} />
+                            <button type="submit" className="text-xs text-critical underline">Cancel</button>
+                          </form>
+                        )}
+                        {status !== 'running' && status !== 'queued' && (
+                          <TwoStepDeleteButton
+                            action={deleteRunAction}
+                            name="runId"
+                            value={String(r.id)}
+                            label="Delete"
+                            confirmLabel="Confirm delete?"
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

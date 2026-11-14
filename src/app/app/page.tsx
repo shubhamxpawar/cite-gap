@@ -1,7 +1,8 @@
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/server/db/client';
-import { checkRuns, fixReports, workspaces } from '@/server/db/schema';
+import { checkRuns, domains, fixReports, workspaces } from '@/server/db/schema';
 import { getCurrentUser } from '@/server/auth/session';
 import { getDashboardSummary, getLatestRuns, getLostPrompts, getVerifiedWins } from '@/server/db/queries';
 import { EngineChip, EmptyState, PageTypeChip, SourceBadge, StatCard, UrlPill } from '@/components/ui';
@@ -25,6 +26,10 @@ export default async function DashboardPage({
   const ENGINES = visibleEngines({ demo: user?.email === 'demo@citegap.dev' });
   const engineFilter = engineParam && (ENGINES as string[]).includes(engineParam) ? engineParam : undefined;
   const ws = user!.workspaceId!;
+  // A workspace with no own-domain is freshly reset: send people through onboarding
+  // instead of an unusable empty dashboard.
+  const ownDomain = await db.select({ id: domains.id }).from(domains).where(and(eq(domains.workspaceId, ws), eq(domains.role, 'own'))).limit(1);
+  if (ownDomain.length === 0) redirect('/onboarding');
 
   const { current, previous } = await getLatestRuns(ws);
   const [summary, lost, wins, [wsRow], [latestRun], reports] = await Promise.all([

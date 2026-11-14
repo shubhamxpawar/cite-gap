@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/server/db/client';
-import { domains, workspaces } from '@/server/db/schema';
+import { domains, workspaces, checkRuns } from '@/server/db/schema';
 import { getCurrentUser } from '@/server/auth/session';
 import { getUsage } from '@/server/db/queries';
-import { updateDomainAction } from '@/app/actions';
+import { updateDomainAction, clearRunHistoryAction, resetWorkspaceAction } from '@/app/actions';
 import { PLAN_CAPS_USD, PLAN_COMPETITOR_LIMITS, PLAN_PROMPT_LIMITS } from '@/server/jobs/run-check';
 import { Disclaimer } from '@/components/ui';
 
@@ -30,16 +30,18 @@ function Meter({ label, used, limit, note }: { label: string; used: number; limi
   );
 }
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
-  const { error, saved } = await searchParams;
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; notice?: string }> }) {
+  const { error, saved, notice } = await searchParams;
   const user = await getCurrentUser();
   const ws = user!.workspaceId!;
 
-  const [[wsRow], [ownDomain], usage] = await Promise.all([
+  const [[wsRow], [ownDomain], usage, runRows] = await Promise.all([
     db.select().from(workspaces).where(eq(workspaces.id, ws)).limit(1),
     db.select().from(domains).where(and(eq(domains.workspaceId, ws), eq(domains.role, 'own'))).limit(1),
     getUsage(ws),
+    db.select({ id: checkRuns.id }).from(checkRuns).where(eq(checkRuns.workspaceId, ws)),
   ]);
+  const runCount = runRows.length;
 
   const plan = wsRow?.plan ?? 'free';
   const promptLimit = PLAN_PROMPT_LIMITS[plan];
@@ -57,6 +59,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       {error && <p role="alert" className="border-2 border-critical px-2 py-1 text-sm text-critical">{error}</p>}
       {saved && <p role="status" className="border-2 border-own bg-own-tint px-2 py-1 text-sm">Settings saved.</p>}
+      {notice && <p role="status" className="border-2 border-ink bg-own-tint px-2 py-1 text-sm">{notice.replace(/\+/g, ' ')}</p>}
 
       <section className="brutal p-4">
         <h2 className="font-display text-lg font-bold">Workspace</h2>
@@ -108,7 +111,48 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </div>
       </section>
 
-      <Disclaimer>Local-first demo: provider keys, billing and email are intentionally not configured. Citation data comes from the mock engine unless a real key is set.</Disclaimer>
+      <section className="brutal border-2 border-critical p-4">
+        <h2 className="font-display text-lg font-bold text-critical">⚠ Danger zone</h2>
+        <p className="mt-1 text-xs text-muted">Everything below deletes data permanently. There is no undo — and in this local mode there is no backup either. Do this only when you mean it.</p>
+
+        <div className="mt-4 border-t border-ink/20 pt-3">
+          <h3 className="text-sm font-bold">Clear run history <span className="font-normal text-muted">({runCount} {runCount === 1 ? 'run' : 'runs'})</span></h3>
+          <p className="mt-1 text-xs text-muted">
+            Deletes every run and everything it produced: answers, citations and fix reports. Your prompts, tracked pages, domain and plan are kept,
+            and the provider budget spend is reset to zero so a re-run starts clean.
+          </p>
+          <form action={clearRunHistoryAction} className="mt-2 flex flex-wrap items-end gap-2">
+            <div>
+              <label htmlFor="confirm-clear" className="text-xs font-medium">Type <code className="font-mono">DELETE</code> to confirm</label>
+              <input id="confirm-clear" name="confirm" required autoComplete="off" placeholder="DELETE"
+                className="brutal-flat mt-1 min-h-11 w-40 border-ink px-3 py-2 font-mono text-sm" />
+            </div>
+            <button type="submit" className="brutal min-h-11 border-critical bg-competitor px-4 py-2 font-display text-sm font-bold text-surface">
+              Delete all {runCount} {runCount === 1 ? 'run' : 'runs'}
+            </button>
+          </form>
+        </div>
+
+        <div className="mt-4 border-t border-ink/20 pt-3">
+          <h3 className="text-sm font-bold">Reset workspace &amp; start over</h3>
+          <p className="mt-1 text-xs text-muted">
+            Wipes everything the workspace has produced — runs, responses, citations, fix reports, pages, prompts and domain setup — and sends you
+            back to onboarding to re-enter your domain and regenerate questions. Your sign-in and <span className="font-bold uppercase">{plan}</span> plan are kept.
+          </p>
+          <form action={resetWorkspaceAction} className="mt-2 flex flex-wrap items-end gap-2">
+            <div>
+              <label htmlFor="confirm-reset" className="text-xs font-medium">Type <code className="font-mono">DELETE</code> to confirm</label>
+              <input id="confirm-reset" name="confirm" required autoComplete="off" placeholder="DELETE"
+                className="brutal-flat mt-1 min-h-11 w-40 border-ink px-3 py-2 font-mono text-sm" />
+            </div>
+            <button type="submit" className="brutal min-h-11 border-critical bg-competitor px-4 py-2 font-display text-sm font-bold text-surface">
+              Reset workspace &amp; start over
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <Disclaimer>Provider keys configured on this instance power live answers (Gemini plus Tavily/Brave/Serper search). Billing and email are not connected; plans are set directly in the database.</Disclaimer>
     </div>
   );
 }

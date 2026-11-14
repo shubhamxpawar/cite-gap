@@ -9,6 +9,7 @@ import { getCurrentUser, signInOrCreate, signInWithPassword, signUpWithPassword,
 import { passwordPolicyError } from '@/server/auth/password';
 import { createRun, PLAN_PROMPT_LIMITS, PLAN_COMPETITOR_LIMITS } from '@/server/jobs/run-check';
 import { selectEngines } from '@/server/engines';
+import { deleteRun, clearRunHistory, resetWorkspaceData } from '@/server/workspace-reset';
 import { dispatchEvent } from '@/server/jobs/dispatch';
 import { onboardingPrompts, inferCategory, brandFromTitle } from '@/server/pipeline/prompts';
 import { fetchPageSafe } from '@/server/pipeline/fetcher';
@@ -183,6 +184,39 @@ export async function cancelRunAction(formData: FormData) {
     .where(and(eq(checkRuns.id, runId), eq(checkRuns.workspaceId, workspaceId), eq(checkRuns.status, 'running')));
   revalidatePath('/app');
   revalidatePath('/app/runs');
+}
+
+// Deletes one (finished) run plus everything derived from it. Button lives on /app/runs.
+export async function deleteRunAction(formData: FormData) {
+  const { workspaceId } = await requireWorkspace();
+  const runId = str(formData, 'runId');
+  if (!runId) redirect('/app/runs');
+  await deleteRun(workspaceId, runId);
+  revalidatePath('/app');
+  revalidatePath('/app/runs');
+  redirect('/app/runs?notice=Run+deleted+(responses%2C+citations+and+fix+reports+went+with+it)');
+}
+
+// Deletes ALL runs and derived data, keeps prompts/pages/domains/plan. Confirmation: type DELETE.
+export async function clearRunHistoryAction(formData: FormData) {
+  const { workspaceId } = await requireWorkspace();
+  const confirm = str(formData, 'confirm').toUpperCase();
+  if (confirm !== 'DELETE') redirect('/app/settings?error=Type+DELETE+to+clear+run+history');
+  const result = await clearRunHistory(workspaceId);
+  revalidatePath('/app');
+  revalidatePath('/app/runs');
+  revalidatePath('/app/settings');
+  redirect(`/app/settings?notice=${encodeURIComponent(`Deleted ${result.runs} run(s) — responses, citations and fix reports went with them. Your prompts, pages and domains are kept.`)}`);
+}
+
+// Full workspace wipe back to onboarding. Confirmation: type DELETE.
+export async function resetWorkspaceAction(formData: FormData) {
+  const { workspaceId } = await requireWorkspace();
+  const confirm = str(formData, 'confirm').toUpperCase();
+  if (confirm !== 'DELETE') redirect('/app/settings?error=Type+DELETE+to+reset+the+workspace');
+  await resetWorkspaceData(workspaceId);
+  revalidatePath('/app');
+  redirect('/onboarding');
 }
 
 export async function markFixItemAction(formData: FormData) {
