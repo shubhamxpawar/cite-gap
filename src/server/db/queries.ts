@@ -265,7 +265,45 @@ export async function getFixReports(ws: string, state?: string) {
   `);
 }
 
-export async function getPages(ws: string, owner?: string, type?: string) {
+// Pages table sortable columns. The default order matches the product rule:
+// yours > competitor > third-party, then pricing > comparison > blog > other.
+export type PagesSort = 'url' | 'owner' | 'type' | 'cited30d' | 'engines' | 'fetched';
+
+const OWNER_RANK = `case when p.owner = 'own' then 0 when p.owner = 'competitor' then 1 else 2 end`;
+const TYPE_RANK = `case when p.page_type = 'pricing' then 0 when p.page_type = 'homepage' then 1 when p.page_type = 'comparison' then 2 when p.page_type = 'docs' then 3 when p.page_type = 'alternatives' then 4 when p.page_type = 'blog' then 5 when p.page_type = 'changelog' then 6 when p.page_type = 'integrations' then 7 else 8 end`;
+const CITED_EXPR = `(select count(*)::int from citations c join responses r on r.id = c.response_id where c.page_id = p.id and c.kind = 'cited' and r.created_at > now() - interval '30 days')`;
+const ENGINE_COUNT_EXPR = ` cardinality((select coalesce(array_agg(distinct r.engine::text), '{}') from citations c join responses r on r.id = c.response_id where c.page_id = p.id and c.kind = 'cited'))`;
+
+const SORT_EXPRESSIONS: Record<PagesSort, string> = {
+  url: 'p.url_normalized',
+  owner: OWNER_RANK,
+  type: TYPE_RANK,
+  cited30d: CITED_EXPR,
+  engines: ENGINE_COUNT_EXPR,
+  fetched: 'p.last_fetched_at',
+};
+// natural default direction per column; the UI toggles asc/desc explicitly
+const NATURAL_DIR: Record<PagesSort, 'asc' | 'desc'> = {
+  url: 'asc',
+  owner: 'asc',
+  type: 'asc',
+  cited30d: 'desc',
+  engines: 'desc',
+  fetched: 'desc',
+};
+
+function pagesOrderBy(sort?: string, dir?: string): string {
+  const key = (Object.keys(SORT_EXPRESSIONS) as PagesSort[]).includes(sort as PagesSort) ? (sort as PagesSort) : undefined;
+  const isDir = dir === 'asc' || dir === 'desc' ? dir : undefined;
+  const stable = `${OWNER_RANK} asc, ${TYPE_RANK} asc, ${CITED_EXPR} desc, p.created_at desc`;
+  if (!key) return stable;
+  const d = isDir ?? NATURAL_DIR[key];
+  const nulls = key === 'fetched' ? (d === 'desc' ? ' nulls last' : ' nulls first') : '';
+  return `${SORT_EXPRESSIONS[key]} ${d}${nulls}, ${stable}`;
+}
+
+export async function getPages(ws: string, owner?: string, type?: string, sort?: string, dir?: string) {
+  const order = pagesOrderBy(sort, dir);
   return q<Record<string, unknown>>(raw`
     select p.id::text, p.url_normalized, p.hostname, p.page_type::text, p.owner::text, p.title,
            p.last_fetched_at::text, p.http_status,
@@ -279,7 +317,7 @@ export async function getPages(ws: string, owner?: string, type?: string) {
     where p.workspace_id = ${ws}::uuid
       and (${owner ?? null}::text is null or p.owner::text = ${owner ?? null})
       and (${type ?? null}::text is null or p.page_type::text = ${type ?? null})
-    order by cited_30d desc, p.created_at desc
+    order by ${raw.raw(order)}
     limit 500
   `);
 }
